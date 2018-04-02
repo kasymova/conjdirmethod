@@ -1,0 +1,6 @@
+.idea
+cdm/venv
+__pycache__
+cdm/db.sqlite3
+cdm/cdm/settings.py
+logs
