@@ -20,9 +20,11 @@ def index(request):
         return f.subs(s, x_var)
 
     def f(x_mass):
+        print(x_mass)
         f = func
         for i in range(NUMBER_OF_VARS):
             f = f.subs(x_vars[i], x_mass[i])
+        print('F=', f)
         return f
 
     def golden_ratio(f):
@@ -33,6 +35,7 @@ def index(request):
         PHI = (math.sqrt(5) - 1) / 2
         alpha = PHI * a + (1 - PHI) * b
         beta = (1 - PHI) * a + PHI * b
+        print(f)
         while abs(b - a) > EPS:
             if f_s(alpha, f) > f_s(beta, f):
                 a = alpha
@@ -96,6 +99,7 @@ def index(request):
             ans += '$$ x_1 = argmin f(x_0 + s \cdot d_0) = argmin f(' + latex(x_0) + '+ s \cdot' + latex(
                 d) + ') = argmin f(' + latex(x) + ') $$'
 
+            print('listx', list(x))
             S = solve(f(list(x)))
             x = (x.subs(s, S)).evalf(ROUNDING_NUMBER)
             ans += '$$ x_1 = ' + latex(x) + '$$'
