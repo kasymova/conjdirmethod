@@ -1,13 +1,13 @@
 #!/bin/bash
 NAME=cdm
-HOMEDIR=/home/sasha_alesin/Documents/bmstu/bushuev/conjdirmethod
+HOMEDIR=/home/sasha_alesin/conjdirmethod
 DJANGODIR=${HOMEDIR}/${NAME}
 NUM_WORKERS=3
-DJANGO_WSGI_MODULE=cdm/${NAME}.wsgi
+DJANGO_WSGI_MODULE=${NAME}.wsgi
 GUNICORN=${HOMEDIR}/cdm/venv/bin/gunicorn
 
-cd $HOMEDIR
-source cdm/venv/bin/activate
+cd $HOMEDIR/cdm
+source venv/bin/activate
 
 exec ${GUNICORN} ${DJANGO_WSGI_MODULE}:application \
   --workers $NUM_WORKERS \

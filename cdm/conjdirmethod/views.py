@@ -1,12 +1,13 @@
-from django.shortcuts import render
-from django.http import HttpResponse
 import json
 import math
 import re
-from sympy import Function, symbols, latex, Symbol, diff
-from sympy.parsing.sympy_parser import parse_expr
-from sympy.matrices import eye, Matrix, hessian
 from functools import reduce
+
+from django.http import HttpResponse
+from django.shortcuts import render
+from sympy import symbols, latex, Symbol
+from sympy.matrices import Matrix, hessian
+from sympy.parsing.sympy_parser import parse_expr
 
 ans = ''
 ROUNDING_NUMBER = 4
@@ -124,7 +125,7 @@ def index(request):
 
                 S = solve(f(list(x)))
                 x = (x.subs(s, S)).evalf(ROUNDING_NUMBER)
-                ans += '$$ x_' + str(j+1) + '=' + latex(x) + ' $$'
+                ans += '$$ x_' + str(j + 1) + '=' + latex(x) + ' $$'
 
             if (x - x_0).norm() <= EPS:
                 break
