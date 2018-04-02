@@ -11,6 +11,7 @@ from sympy.parsing.sympy_parser import parse_expr
 
 ans = ''
 ROUNDING_NUMBER = 4
+MAX_ITER = 20
 
 listmerge = lambda s: reduce(lambda d, el: d.extend(el) or d, s, [])
 
@@ -20,11 +21,9 @@ def index(request):
         return f.subs(s, x_var)
 
     def f(x_mass):
-        print(x_mass)
         f = func
         for i in range(NUMBER_OF_VARS):
             f = f.subs(x_vars[i], x_mass[i])
-        print('F=', f)
         return f
 
     def golden_ratio(f):
@@ -35,7 +34,6 @@ def index(request):
         PHI = (math.sqrt(5) - 1) / 2
         alpha = PHI * a + (1 - PHI) * b
         beta = (1 - PHI) * a + PHI * b
-        print(f)
         while abs(b - a) > EPS:
             if f_s(alpha, f) > f_s(beta, f):
                 a = alpha
@@ -92,14 +90,12 @@ def index(request):
             ans += '<b>Итерация №' + str(i) + ':</b><br>'
 
             ans += 'Шаг 1:<br>'
-            d = v[0]
-            ans += '$$ d_0 = v_1 = ' + latex(v[0]) + '$$'
+            d = [(v[0].subs({x_vars[k]: x_0[k] for k in range(NUMBER_OF_VARS)})).evalf(ROUNDING_NUMBER)]
+            ans += '$$ d_0 = v_1 = ' + latex(d[0]) + '$$'
 
-            x = x_0 + s * d
+            x = x_0 + s * d[0]
             ans += '$$ x_1 = argmin f(x_0 + s \cdot d_0) = argmin f(' + latex(x_0) + '+ s \cdot' + latex(
-                d) + ') = argmin f(' + latex(x) + ') $$'
-
-            print('listx', list(x))
+                d[0]) + ') = argmin f(' + latex(x) + ') $$'
             S = solve(f(list(x)))
             x = (x.subs(s, S)).evalf(ROUNDING_NUMBER)
             ans += '$$ x_1 = ' + latex(x) + '$$'
@@ -107,24 +103,25 @@ def index(request):
             for j in range(1, NUMBER_OF_VARS):
                 J = str(j)
                 ans += 'Шаг ' + str(j + 1) + ':<br>'
-                y0 = x + v[j]
+                y0 = x + (v[j].subs({x_vars[k]: x_0[k] for k in range(NUMBER_OF_VARS)})).evalf(ROUNDING_NUMBER)
                 ans += '$$ y_' + str(j - 1) + '= x_' + J + ' + v_' + str(j + 1) + '=' + latex(x) + '+' + latex(
-                    v[j]) + '=' + latex(y0) + '$$'
+                    y0 - x) + '=' + latex(y0) + '$$'
 
-                y1 = y0 + s * d
-                ans += '$$ y_' + J + '= argmin f(y_' + str(j - 1) + '+ s \cdot d_' + str(
-                    j - 1) + ')= argmin f(' + latex(y0) + '+ s \cdot' + latex(d) + ') = argmin f(' + latex(y1) + ') $$'
+                ans += 'Находим \(y_' + J + '\), минимизируя последовательно функцию по направлениям \(d_{}'.format(
+                    ',d_'.join([str(k) for k in range(j)])) + '\):<br>'
+                y = y0
+                for k in range(0, j):
+                    y = y + s * d[k]
+                    S = solve(f(list(y)))
+                    y = (y.subs(s, S)).evalf(ROUNDING_NUMBER)
+                ans += '$$ y_' + J + '=' + 'y_' + str(j-1) + '+ \sum_{i=0}^' + str(j-1) + 's_i \cdot d_i=' + latex(y) + '$$'
 
-                S = solve(f(list(y1)))
-                y1 = (y1.subs(s, S)).evalf(ROUNDING_NUMBER)
-                ans += '$$ y_' + str(j) + '=' + latex(y1) + '$$'
-
-                d = x - y1
-                ans += '$$ d_' + J + '= x_' + J + '- y_' + J + '=' + latex(x) + '-' + latex(y1) + '=' + latex(d) + '$$'
+                d.append(x - y)
+                ans += '$$ d_' + J + '= x_' + J + '- y_' + J + '=' + latex(x) + '-' + latex(y) + '=' + latex(
+                    d[j]) + '$$'
                 ans += '$$ x_' + str(j + 1) + '= argmin f(x_' + J + '+ s \cdot d_' + J + ') = argmin f(' + latex(
-                    x) + '+ s \cdot' + latex(d) + ') = argmin f('
-
-                x = x + s * d
+                    x) + '+ s \cdot' + latex(d[j]) + ') = argmin f('
+                x = x + s * d[j]
                 ans += latex(x) + ')$$'
 
                 S = solve(f(list(x)))
@@ -134,14 +131,17 @@ def index(request):
             if (x - x_0).norm() <= EPS:
                 break
 
+            if i > MAX_ITER:
+                break
+
             x_0 = x
-        return x
+        ans += '<b>Ответ:</b> $$ x^* = ' + latex(x) + ' $$'
+        return 0
 
     if request.method == 'GET':
         return render(request, 'index.html')
     else:
         global ans
-        ans = ''
         content = json.loads(request.body.decode('utf-8'))
 
         func = content['func']
@@ -161,13 +161,15 @@ def index(request):
         if len(init_vector) != NUMBER_OF_VARS:
             return HttpResponse('err', content_type='application/json')
 
+        ans = 'Исходная функция: $$f(x_{}) = '.format('x_'.join([str(i + 1) for i in range(NUMBER_OF_VARS)])) + latex(
+            func) + '\\rightarrow min $$' + 'Вектор начального приближения: $$x_0 = ' + latex(
+            init_vector) + '$$'
+
         EPS = float(content['eps'])
         s = Symbol('s')
 
-        answer = conjdirmethod(1)
+        conjdirmethod(1)
 
-        res = 'Исходная функция: $$ f(x_{}) = '.format('x_'.join([str(i + 1) for i in range(NUMBER_OF_VARS)])) + latex(
-            func) + '\\rightarrow min $$' + 'Вектор начального приближения: $$ x_0 = ' + latex(
-            init_vector) + ' $$' + ans + '<b>Ответ:</b> $$ x^* = ' + latex(answer) + ' $$'
+        res = ans
 
     return HttpResponse(res, content_type='application/json')
