@@ -5,6 +5,7 @@ from sympy import symbols
 from sympy.abc import s
 from sympy.matrices import Matrix, hessian
 from sympy.parsing.sympy_parser import parse_expr
+from sympy.utilities.lambdify import lambdify
 
 ROUNDING_NUMBER = 3  # число знаков, до которого округлять (только при выводе, считает точно)
 MAX_ITER = 20  # максимальное число итераций
@@ -12,13 +13,14 @@ MAX_ITER = 20  # максимальное число итераций
 NUMBER_OF_VARS = 2  # число переменных
 x_vars = symbols('x1:%d' % (NUMBER_OF_VARS + 1))  # создаем эти переменные
 
-func = '(1-x1)**2 + 100*(x2-x1**2)**2'  # исходная функция
-func = parse_expr(func)  # создаем ее
+loss_function = 'x1**2 + 2*x2**2 + x1*x2 - 7*x1 - 7*x2'  # целевая функция
+loss_function = parse_expr(loss_function)
+f = lambdify(x_vars, loss_function)  # создаем ее
 
-init_vector = [-1, 0]  # начальный вектор
+init_vector = [-15, 10]  # начальный вектор
 init_vector = Matrix(init_vector)  # относим его к классу матриц
 
-EPS = 0.01  # погрешность
+EPS = 0.001  # погрешность
 
 listmerge = lambda s: reduce(lambda d, el: d.extend(el) or d, s, [])  # системная функция для слияния списков
 
@@ -28,30 +30,6 @@ def rounding_vectors(vector):  # Функция для округления ве
     return [round(el, ROUNDING_NUMBER) for el in vector]
 
 
-def f_s(point, f):  # функция для подстановки аргумента в одномерную функцию
-    """
-    Принимает:
-    f - функция от одной переменной f(s), которая получилась после подстановки аргументов в иходную функцию
-    point - точка (число), которую необходимо подставить вместо s
-    Возвращает:
-    Значение функции (число) f(s) в точке point
-    """
-    return f.subs(s, point)
-
-
-def f(point):  # функция для подстановки аргументов в исходную функцию
-    """
-    Принимает:
-    point - точка (числовой вектор размером NUMBER_OF_VARS), которую необходимо подставить в исходную функцию
-    Возвращает:
-    f (число) - значение исходной функции в точке point
-    """
-    f = func
-    for i in range(NUMBER_OF_VARS):
-        f = f.subs(x_vars[i], point[i])
-    return f
-
-
 def golden_ratio(f):  # Метод золотого сечения
     """
     Принимает:
@@ -59,21 +37,20 @@ def golden_ratio(f):  # Метод золотого сечения
     Возвращает:
     answer (число) - средняя точка на интервале (a, b)
     """
+    f = lambdify(s, f)
+
     a = -50  # границы интервала поиска
     b = 50
     PHI = (math.sqrt(5) - 1) / 2
-    alpha = PHI * a + (1 - PHI) * b
-    beta = (1 - PHI) * a + PHI * b
 
     while abs(b - a) > EPS:  # основной цикл
-        if f_s(alpha, f) > f_s(beta, f):  # сравниваем значение функции в точках alpha и beta
+        alpha = PHI * a + (1 - PHI) * b
+        beta = (1 - PHI) * a + PHI * b
+
+        if f(alpha) > f(beta):  # сравниваем значение функции в точках alpha и beta
             a = alpha
-            alpha = beta
-            beta = a + PHI * (b - a)
         else:
             b = beta
-            beta = alpha
-            alpha = a + (1 - PHI) * (b - a)
 
     answer = (a + b) / 2
     return answer
@@ -86,6 +63,8 @@ def dichotomy(f):  # Метод дихотомии
     Возвращает:
     answer (число) - средняя точка на интервале (a, b)
     """
+    f = lambdify(s, f)
+
     a = -50  # границы интервала поиска
     b = 50
     delta = EPS / 2
@@ -93,7 +72,8 @@ def dichotomy(f):  # Метод дихотомии
     while abs(b - a) > EPS:  # основной цикл
         x1 = (a + b - delta) / 2
         x2 = (a + b + delta) / 2
-        if f_s(x1, f) <= f_s(x2, f):  # сравниваем значение функции в точках alpha и beta
+
+        if f(x1) <= f(x2):  # сравниваем значение функции в точках x1 и x2
             b = x2
         else:
             a = x1
@@ -102,35 +82,18 @@ def dichotomy(f):  # Метод дихотомии
     return answer
 
 
-def conjdirmethod(method):  # Метод сопряженных направлений
+def conjdirmethod():  # Метод сопряженных направлений
     """
-    Принимает:
-    method (число) - метод, с помощью которого необходимо решить одномерную задачу минимиации
-    1 - Метод золотого сечения
-    2 - Метод дихотомии
     Возвращает:
     x (вектор) - точка минимума исходной функции
     """
 
-    def solve(f):  # Вспомогательная функция
-        """
-        Функция, вызывающая метод дихотомии либо метод золотого сечения для решения одномерной задачи минимизации
-        в зависимости от параметра method
-        Принимает функцию от одного параметра f(s), которую необходимо минимизировать одним из методов
-        """
-        if method == 1:
-            return golden_ratio(f)
-        elif method == 2:
-            return dichotomy(f)
-
-    H = hessian(func, x_vars)  # находим матрицу Гессе исходной функции
-
-    v = listmerge([el[2] for el in H.eigenvects()])  # находим собственные векторы матрицы Гессе
-    # v = [el.evalf(ROUNDING_NUMBER) for el in v] # округляем собственные векторы
+    H = hessian(loss_function, x_vars)  # находим матрицу Гессе исходной функции
+    v = [el.evalf() for el in listmerge([el[2] for el in H.eigenvects()])]  # находим собственные векторы матрицы Гессе
 
     x_0 = init_vector  # в качестве x_0 берем начальный вектор
-    i = 0  # счетчик числа итераций
 
+    i = 0  # счетчик числа итераций
     # Внешний цикл - отвечает за число итераций, работает до тех пор, пока норма разности x и x0 больше EPS
     while True:
         i += 1
@@ -144,9 +107,9 @@ def conjdirmethod(method):  # Метод сопряженных направле
         d = [v[0].subs({x_vars[k]: x_0[k] for k in range(NUMBER_OF_VARS)})]
 
         x = x_0 + s * d[0]
-        S = solve(f(list(x)))  # Находим S из решения задачи одномерной минимизации
+        S = dichotomy(f(*x))  # Находим S из решения задачи одномерной минимизации
         x = x.subs(s, S)  # Подставляем S в x
-        print('\t\tx = ', rounding_vectors(x))
+        print('\t\tx = ', rounding_vectors(x))  # Выводим x на экран
 
         # Второй цикл - отвечает за количество дальнейших шагов (2, 3, ...), которое зависит от числа переменных
         for j in range(1, NUMBER_OF_VARS):
@@ -161,14 +124,13 @@ def conjdirmethod(method):  # Метод сопряженных направле
             # Внутренний цикл для последовательной минимизации y по направлениям d0, d1, ...
             for k in range(0, j):
                 y = y + s * d[k]
-                S = solve(f(list(y)))  # Находим S из решения задачи одномерной минимизации
+                S = dichotomy(f(*y))  # Находим S из решения задачи одномерной минимизации
                 y = y.subs(s, S)  # Подставляем S в y
-            print('\t\ty = ', rounding_vectors(y))
 
             d.append(x - y)  # Находим следующее d как x - y
 
             x = x + s * d[j]
-            S = solve(f(list(x)))  # Находим S из решения задачи одномерной минимизации
+            S = dichotomy(f(*x))  # Находим S из решения задачи одномерной минимизации
             x = x.subs(s, S)  # Подставляем S в y
             print('\t\tx = ', rounding_vectors(x))
 
@@ -184,11 +146,10 @@ def conjdirmethod(method):  # Метод сопряженных направле
     return x
 
 
-print('Исходная функция: ', func)
+print('Целевая функция: ', loss_function)
+print('Начальный вектор: ', rounding_vectors(init_vector))
 
-# Вызываем метод сопряженных направлений, передаем параметр method, равный
-# 1 - Метод золотого сечения
-# 2 - Метод дихотомии
-min_x = conjdirmethod(1)
+# Вызываем метод сопряженных направлений
+min_x = conjdirmethod()
 
 print('\nОтвет: x_min = ', rounding_vectors(min_x))

@@ -3,11 +3,13 @@ import math
 import re
 from functools import reduce
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
-from sympy import symbols, latex, Symbol
+from sympy import symbols, latex, Symbol, nsolve
 from sympy.matrices import Matrix, hessian
 from sympy.parsing.sympy_parser import parse_expr
+
+from django.views.decorators.csrf import csrf_exempt
 
 ans = ''
 ROUNDING_NUMBER = 4
@@ -173,3 +175,28 @@ def index(request):
         res = ans
 
     return HttpResponse(res, content_type='application/json')
+
+@csrf_exempt
+def surface(request):
+    if request.method == "POST":
+        content = json.loads(request.body.decode('utf-8'))
+        Xstr = content['X']
+        Ystr = content['Y']
+        Zstr = content['Z']
+
+        X1str = content['X1']
+        Y1str = content['Y1']
+        Z1str = content['Z1']
+
+        X = parse_expr(Xstr)
+        Y = parse_expr(Ystr)
+        Z = parse_expr(Zstr)
+        X1 = parse_expr(X1str)
+        Y1 = parse_expr(Y1str)
+        Z1 = parse_expr(Z1str)
+
+        resp = JsonResponse({'kek': "It's worked!"})
+        resp['Access-Control-Allow-Origin'] = '*'
+
+        return resp
+    return HttpResponse('It was GET')
