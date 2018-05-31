@@ -5,9 +5,10 @@ from functools import reduce
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
-from sympy import symbols, latex, Symbol, nsolve
+from sympy import symbols, latex, Symbol, solve
 from sympy.matrices import Matrix, hessian
 from sympy.parsing.sympy_parser import parse_expr
+from sympy.abc import u, v, a, b
 
 from django.views.decorators.csrf import csrf_exempt
 
@@ -116,7 +117,8 @@ def index(request):
                     y = y + s * d[k]
                     S = solve(f(list(y)))
                     y = (y.subs(s, S)).evalf(ROUNDING_NUMBER)
-                ans += '$$ y_' + J + '=' + 'y_' + str(j-1) + '+ \sum_{i=0}^' + str(j-1) + 's_i \cdot d_i=' + latex(y) + '$$'
+                ans += '$$ y_' + J + '=' + 'y_' + str(j - 1) + '+ \sum_{i=0}^' + str(j - 1) + 's_i \cdot d_i=' + latex(
+                    y) + '$$'
 
                 d.append(x - y)
                 ans += '$$ d_' + J + '= x_' + J + '- y_' + J + '=' + latex(x) + '-' + latex(y) + '=' + latex(
@@ -176,6 +178,7 @@ def index(request):
 
     return HttpResponse(res, content_type='application/json')
 
+
 @csrf_exempt
 def surface(request):
     if request.method == "POST":
@@ -195,8 +198,14 @@ def surface(request):
         Y1 = parse_expr(Y1str)
         Z1 = parse_expr(Z1str)
 
-        resp = JsonResponse({'kek': "It's worked!"})
-        resp['Access-Control-Allow-Origin'] = '*'
+        solution = solve([X - X1, Y - Y1, Z - Z1], [u, v, a])
+        answer = {"curve" + str(i): [str(X.subs({u: solution[i][0], v: solution[i][1]})),
+                                     str(Y.subs({u: solution[i][0], v: solution[i][1]})),
+                                     str(Z.subs({u: solution[i][0], v: solution[i][1]}))]
+                  for i in range(len(solution))}
+        resp = JsonResponse(answer)
 
+        resp['Access-Control-Allow-Origin'] = '*'
         return resp
+
     return HttpResponse('It was GET')
