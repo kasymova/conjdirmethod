@@ -198,12 +198,16 @@ def surface(request):
         Y1 = parse_expr(Y1str)
         Z1 = parse_expr(Z1str)
 
-        solution = solve([X - X1, Y - Y1, Z - Z1], [u, v, a])
-        answer = {"curve" + str(i): [str(X.subs({u: solution[i][0], v: solution[i][1]})),
+        try:
+            solution = solve([X - X1, Y - Y1, Z - Z1], [u, v, a])
+            answer = {"curve" + str(i): [str(X.subs({u: solution[i][0], v: solution[i][1]})),
                                      str(Y.subs({u: solution[i][0], v: solution[i][1]})),
                                      str(Z.subs({u: solution[i][0], v: solution[i][1]}))]
                   for i in range(len(solution))}
-        resp = JsonResponse(answer)
+            resp = JsonResponse(answer)
+        except:
+            resp = HttpResponse(status=500)
+
 
         resp['Access-Control-Allow-Origin'] = '*'
         return resp
